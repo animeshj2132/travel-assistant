@@ -105,6 +105,24 @@
                 content: '';
             }
         }
+
+        #healthButton {
+            margin-top: 10px;
+            padding: 5px 10px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        #healthStatus {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f0f0f0;
+            display: none;
+        }
     </style>
 </head>
 
@@ -126,6 +144,12 @@
             <input id="userInput" placeholder="Ask me about flights, hotels, restaurants..." />
             <button onclick="sendMessage()">Send</button>
             <button onclick="loadHistory()">🔁 History</button>
+        </div>
+
+        <!-- Health Check Section -->
+        <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 10px;">
+            <button id="healthButton" onclick="checkHealth()">Check API Health</button>
+            <div id="healthStatus"></div>
         </div>
     </div>
 
@@ -264,7 +288,7 @@
             showLoading();
 
             try {
-                const res = await fetch(`${API}/chat`, {
+                const res = await fetch(`https://travel-assistant-production.up.railway.app/chat`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -272,6 +296,7 @@
                     },
                     body: JSON.stringify({ prompt }),
                 });
+                console.log("Response from server:", res);
                 const data = await res.json();
                 console.log("Response from server:", data);
 
@@ -390,6 +415,48 @@
 `;
                 addMessage(restaurantInfo);
             });
+        }
+
+        // Health check function
+        async function checkHealth() {
+            const healthStatus = document.getElementById("healthStatus");
+            healthStatus.style.display = "block";
+            healthStatus.textContent = "Checking health...";
+            healthStatus.style.backgroundColor = "#f0f0f0";
+
+            try {
+                // Try both health endpoints
+                let response;
+                try {
+                    response = await fetch(`${API}/health`);
+                } catch (e) {
+                    console.log("Error with /health, trying /api/health");
+                    response = await fetch(`${API}/api/health`);
+                }
+
+                if (response.ok) {
+                    const data = await response.json();
+                    healthStatus.textContent = `✅ API is healthy! Database has ${data.counts.flights} flights, ${data.counts.hotels} hotels, and ${data.counts.restaurants} restaurants.`;
+                    healthStatus.style.backgroundColor = "#e8f5e9";
+                } else {
+                    healthStatus.textContent = `❌ Health check failed: ${response.status} ${response.statusText}`;
+                    healthStatus.style.backgroundColor = "#ffebee";
+                }
+            } catch (error) {
+                healthStatus.textContent = `❌ Health check failed: ${error.message}`;
+                healthStatus.style.backgroundColor = "#ffebee";
+
+                // Add direct links for troubleshooting
+                const directLinks = document.createElement("div");
+                directLinks.innerHTML = `
+                    <p>Try direct endpoint links:</p>
+                    <ul>
+                        <li><a href="${API}/health" target="_blank">${API}/health</a></li>
+                        <li><a href="${API}/api/health" target="_blank">${API}/api/health</a></li>
+                    </ul>
+                `;
+                healthStatus.appendChild(directLinks);
+            }
         }
     </script>
 </body>
