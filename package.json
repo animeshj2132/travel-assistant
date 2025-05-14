@@ -1,12 +1,12 @@
 {
   "name": "travel-assistant",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node-dev src/index.ts",
     "nodemon": "nodemon src/index.ts",
     "build": "tsc",
-    "start": "node server.js",
+    "start": "node dist/index.js",
     "postinstall": "npm run build"
   },
   "dependencies": {
