@@ -942,13 +942,13 @@ Would you like me to help you search for flights on a different date?`;
             } catch (error) {
                 console.error('Error searching for flights:', error);
 
+
                 res.json({
                     intent,
                     results: [],
                     fallback: true,
                     message: 'Sorry, I encountered an error while searching for flights. Please try again later.',
-                    slots,
-                    error: true
+                    slots
                 });
             }
             return;

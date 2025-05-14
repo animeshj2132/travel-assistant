@@ -272,62 +272,13 @@
                     },
                     body: JSON.stringify({ prompt }),
                 });
-
-                // Check if response status indicates an error
-                if (!res.ok) {
-                    console.error("API error: Server returned status", res.status);
-                    hideLoading();
-                    addMessage("⚠️ Server error occurred. Please try again later.");
-                    return;
-                }
-
-                // Parse response
-                let data;
-                try {
-                    data = await res.json();
-                    console.log("Response from server:", data);
-                } catch (parseError) {
-                    console.error("API error: Could not parse JSON response", parseError);
-                    hideLoading();
-                    addMessage("⚠️ Error occurred while processing the response. Please try again.");
-                    return;
-                }
+                const data = await res.json();
+                console.log("Response from server:", data);
 
                 hideLoading();
 
-                // Process data - handle error responses that still include valuable information
-                if (data.error && data.slots && data.slots.lastResults) {
-                    try {
-                        const recoveredResults = JSON.parse(data.slots.lastResults);
-                        if (Array.isArray(recoveredResults) && recoveredResults.length > 0) {
-                            addMessage("I found these options earlier:");
+                if (data.message) addMessage("🤖 " + data.message);
 
-                            // Display results based on the lastIntent
-                            const intentType = data.slots.lastIntent || data.intent || "unknown";
-                            if (intentType === "flight") {
-                                displayFlights(recoveredResults);
-                            } else if (intentType === "hotel") {
-                                displayHotels(recoveredResults);
-                            } else if (intentType === "restaurant") {
-                                displayRestaurants(recoveredResults);
-                            } else {
-                                recoveredResults.forEach((item, i) =>
-                                    addMessage(`Result ${i + 1}: ${JSON.stringify(item)}`)
-                                );
-                            }
-                            return;
-                        }
-                    } catch (parseError) {
-                        console.error("Error parsing lastResults:", parseError);
-                    }
-                }
-
-                // Display any message sent from the server
-                if (data.message) {
-                    addMessage(data.message.startsWith("🤖 ") ? data.message : "🤖 " + data.message);
-                }
-
-                // Process new results if available
                 if (data.results?.length) {
                     // Update stored data
                     lastResults = data.results;
@@ -352,57 +303,12 @@
                             addMessage(`Result ${i + 1}: ${JSON.stringify(item)}`)
                         );
                     }
-                } else if (prompt.toLowerCase().includes("flight") && prompt.toLowerCase().includes("from") && prompt.toLowerCase().includes("to") && !data.message) {
-                    // Special handling for flight searches with no results and no message
-                    const matches = prompt.match(/from\s+([a-z\s]+)\s+to\s+([a-z\s]+)/i);
-                    if (matches) {
-                        const origin = matches[1].trim();
-                        const destination = matches[2].trim();
-                        addMessage(`I couldn't find any flights from ${origin} to ${destination} with the current criteria. Try different dates or check alternative routes.`);
-                    } else {
-                        addMessage("I couldn't find any flights matching your search criteria. Please try a different search.");
-                    }
+                } else {
+                    console.log("No results received, hiding filter");
                 }
             } catch (e) {
                 console.error("API error:", e);
                 hideLoading();
-
-                if (prompt.toLowerCase() === "again" || prompt.toLowerCase() === "retry") {
-                    // Handle retries specifically
-                    addMessage("Let me try that again for you.");
-
-                    // Check if we have lastResults in conversationCache
-                    const token = getToken();
-                    const userId = token ? 'user' : 'guest';
-                    const conversationId = `${userId}-${Date.now()}`;
-
-                    try {
-                        // Retry the last query with simplified parameters
-                        const retryRes = await fetch(`${API}/chat`, {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                Authorization: `Bearer ${getToken()}`,
-                            },
-                            body: JSON.stringify({ prompt: "flight from delhi to mumbai" }),
-                        });
-
-                        const retryData = await retryRes.json();
-                        if (retryData.results?.length) {
-                            lastResults = retryData.results;
-                            currentIntent = retryData.intent;
-
-                            if (retryData.intent === "flight") {
-                                addMessage("Here are the flights I found:");
-                                displayFlights(retryData.results);
-                            }
-                            return;
-                        }
-                    } catch (retryError) {
-                        console.error("Retry failed:", retryError);
-                    }
-                }
-
                 addMessage("⚠️ Error occurred. Try again.");
             }
         }
