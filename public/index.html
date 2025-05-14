@@ -246,7 +246,7 @@
         }
 
         function resetChatToInitialState() {
-            messages.innerHTML = ''; 
+            messages.innerHTML = '';
             addMessage("👋 Hi! I'm your Travel Assistant. How can I help you today? You can ask me about flights, hotels, or restaurants. I'll remember our conversation context, so feel free to be specific or ask follow-up questions!");
 
             lastResults = [];
@@ -272,10 +272,25 @@
                     },
                     body: JSON.stringify({ prompt }),
                 });
+
                 const data = await res.json();
                 console.log("Response from server:", data);
 
                 hideLoading();
+
+                // Handle case where there's an error but we have slots with lastResults
+                if (data.error && data.slots && data.slots.lastResults) {
+                    try {
+                        const recoveredResults = JSON.parse(data.slots.lastResults);
+                        if (Array.isArray(recoveredResults) && recoveredResults.length > 0) {
+                            addMessage("Here are the flights I found earlier:");
+                            displayFlights(recoveredResults);
+                            return;
+                        }
+                    } catch (parseError) {
+                        console.error("Error parsing lastResults:", parseError);
+                    }
+                }
 
                 if (data.message) addMessage("🤖 " + data.message);
 
@@ -302,6 +317,16 @@
                         data.results.forEach((item, i) =>
                             addMessage(`Result ${i + 1}: ${JSON.stringify(item)}`)
                         );
+                    }
+                } else if (prompt.toLowerCase().includes("flight") && prompt.toLowerCase().includes("from") && prompt.toLowerCase().includes("to")) {
+                    // Special handling for flight searches with no results
+                    const matches = prompt.match(/from\s+([a-z\s]+)\s+to\s+([a-z\s]+)/i);
+                    if (matches) {
+                        const origin = matches[1].trim();
+                        const destination = matches[2].trim();
+                        addMessage(`I couldn't find any flights from ${origin} to ${destination} with the current criteria. Try different dates or check alternative routes.`);
+                    } else {
+                        addMessage("I couldn't find any flights matching your search criteria. Please try a different search.");
                     }
                 } else {
                     console.log("No results received, hiding filter");
