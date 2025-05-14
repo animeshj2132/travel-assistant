@@ -41,14 +41,14 @@ function getPriceRange(min: number, max: number): string {
 
 function generateFlightTimes(count: number) {
     const times = [];
-    
+
     const timeSlots = [
-        { start: 6, end: 11 },  
-        { start: 12, end: 17 }, 
-        { start: 18, end: 22 }  
+        { start: 6, end: 11 },
+        { start: 12, end: 17 },
+        { start: 18, end: 22 }
     ];
 
-    
+
     for (let i = 0; i < count; i++) {
         const slot = timeSlots[i % timeSlots.length];
         const hour = getRandomInt(slot.start, slot.end);
@@ -90,14 +90,14 @@ function getDateRange(start: Date, days: number): Date[] {
 }
 
 async function main() {
-    
+
     await prisma.flight.deleteMany({});
     await prisma.hotel.deleteMany({});
     await prisma.restaurant.deleteMany({});
     await prisma.searchLog.deleteMany({});
     await prisma.guestLog.deleteMany({});
 
-    
+
     const cities = ["Delhi", "Mumbai", "Bangalore", "Chennai", "Kolkata", "Hyderabad", "Pune", "Jaipur", "Ahmedabad", "Goa"];
     const airlines = ["IndiGo", "Air India", "SpiceJet", "Vistara", "AirAsia"];
     const flightNumbers: Record<string, string> = {
@@ -135,6 +135,7 @@ async function main() {
                         data: {
                             flight_name: airline,
                             flight_number: `${flightNumbers[airline]}${flightNumberCounter++}`,
+                            source: origin,
                             destination: destination,
                             departure_time: departureTime,
                             arrival_time: arrivalTime,
@@ -146,7 +147,7 @@ async function main() {
 
                     flightCount++;
 
-                    
+
                     if (flightCount % 100 === 0) {
                         console.log(`Created ${flightCount} flights...`);
                     }
@@ -155,7 +156,7 @@ async function main() {
         }
     }
 
-    
+
     console.log("Generating hotels...");
     for (const city of cities) {
         for (let i = 0; i < 10; i++) {
@@ -163,15 +164,15 @@ async function main() {
                 data: {
                     name: `${getRandomElement(hotelNames)} ${getRandomElement(hotelSuffixes)}`,
                     city: city,
-                    rating: getRandomInt(3, 5),
+                    stars: getRandomInt(3, 5),
                     room_price: getRandomFloat(2000, 20000),
-                    availability: Math.random() > 0.2 
+                    availability: Math.random() > 0.2
                 }
             });
         }
     }
 
-    
+
     console.log("Generating restaurants...");
     for (const city of cities) {
         for (let i = 0; i < 10; i++) {

@@ -30,7 +30,7 @@ const conversationCache: Record<string, SlotContext> = {};
 function isOffTopic(prompt: string): boolean {
     const lower = prompt.toLowerCase();
 
-    
+
     const travelTerms = [
         'travel', 'trip', 'vacation', 'visit', 'tour', 'flight', 'hotel',
         'restaurant', 'accommodation', 'food', 'destination', 'city',
@@ -43,7 +43,7 @@ function isOffTopic(prompt: string): boolean {
         'backpacking', 'airbnb', 'motel', 'hostel', 'inn', 'departure', 'arrival'
     ];
 
-    
+
     const locationTerms = [
         'delhi', 'mumbai', 'bangalore', 'kolkata', 'chennai', 'hyderabad',
         'ahmedabad', 'pune', 'jaipur', 'lucknow', 'kanpur', 'nagpur', 'indore',
@@ -62,17 +62,17 @@ function isOffTopic(prompt: string): boolean {
         'sydney', 'hong kong', 'bangkok', 'istanbul', 'toronto', 'rome', 'barcelona'
     ];
 
-    
+
     for (const term of travelTerms) {
         if (lower.includes(term)) return false;
     }
 
-    
+
     for (const location of locationTerms) {
         if (lower.includes(location)) return false;
     }
 
-    
+
     const offTopicSubjects = [
         'algorithm', 'code', 'programming', 'math', 'science', 'politics',
         'religion', 'database', 'sorting', 'ai', 'machine learning', 'complexity',
@@ -82,31 +82,31 @@ function isOffTopic(prompt: string): boolean {
         'medicine', 'philosophy', 'literature', 'grammar', 'language model', 'gpt'
     ];
 
-    
+
     for (const subject of offTopicSubjects) {
         if (lower.includes(subject)) return true;
     }
 
-    
-    
+
+
     if (prompt.split(' ').length < 4) {
-        
+
         if (locationTerms.some(term => lower.includes(term)) ||
             travelTerms.some(term => lower.includes(term))) {
             return false;
         }
 
-        
+
         const ambiguousTerms = ['from', 'to', 'when', 'where', 'how', 'much', 'cost', 'price', 'best'];
 
-        
+
         const words = lower.split(/\s+/);
         if (words.every(word => ambiguousTerms.includes(word))) {
             return false;
         }
     }
 
-    
+
     return false;
 }
 
@@ -126,7 +126,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
 
     const trimmed = prompt.trim();
 
-    
+
     if (isOffTopic(trimmed)) {
         res.json({
             intent: "off-topic",
@@ -135,25 +135,25 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
         return;
     }
 
-    
+
     let intent = extractIntent(trimmed);
     const currentSlots = extractSlots(trimmed);
 
-    
+
     const contextSlots = await getConversationContext(req);
 
-    
+
     const conversationId = req.user ? `user-${req.user.userId}` : `guest-${getClientIP(req)}`;
     const cachedContext = conversationCache[conversationId] || {};
 
     console.log("Database context:", contextSlots);
     console.log("Cached context:", cachedContext);
 
-    
+
     const previousOrigin = contextSlots.origin || cachedContext.origin;
     const previousDestination = contextSlots.destination || cachedContext.destination;
 
-    
+
     let shouldResetDate = false;
     if (intent === "flight" && currentSlots.origin && currentSlots.destination) {
         if ((previousOrigin && previousOrigin !== currentSlots.origin) ||
@@ -163,7 +163,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
         }
     }
 
-    
+
     const isFilterRequest =
         trimmed.toLowerCase().includes('filter') ||
         trimmed.toLowerCase().includes('show me only') ||
@@ -176,19 +176,19 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
         trimmed.toLowerCase().includes('budget') ||
         trimmed.toLowerCase().includes('under 5000');
 
-    
+
     if (isFilterRequest && intent === "unknown") {
         console.log("Changing intent from unknown to filter");
         intent = "filter";
     }
 
-    
+
     console.log(`Filter request detected: ${isFilterRequest}`);
     console.log(`Current request: "${trimmed}"`);
     console.log(`Current intent: ${intent}`);
 
-    
-    
+
+
     const slots: SlotContext = {
         origin: currentSlots.origin || contextSlots.origin || cachedContext.origin || null,
         destination: currentSlots.destination || contextSlots.destination || cachedContext.destination || null,
@@ -200,7 +200,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
         lastResults: contextSlots.lastResults || cachedContext.lastResults
     };
 
-    
+
     const previousIntent = contextSlots.lastIntent || cachedContext.lastIntent;
     if ((intent !== previousIntent && intent !== "filter" && intent !== "unknown") || shouldResetDate) {
         console.log(`Intent changed from ${previousIntent} to ${intent} or route changed. Clearing context.`);
@@ -210,46 +210,46 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
         }
     }
 
-    
+
     console.log(`Current slots: ${JSON.stringify(currentSlots)}`);
     console.log(`Context slots: ${JSON.stringify(contextSlots)}`);
 
-    
-    
+
+
     if (
-        
+
         currentSlots.date &&
         !currentSlots.origin &&
         !currentSlots.destination &&
-        trimmed.length < 20 && 
+        trimmed.length < 20 &&
         (contextSlots.lastIntent === "flight" || cachedContext.lastIntent === "flight") &&
         (contextSlots.origin || cachedContext.origin) &&
         (contextSlots.destination || cachedContext.destination)
     ) {
         console.log("SPECIAL HANDLING: Date-only message with previous flight context");
 
-        
+
         intent = "flight";
 
-        
+
         const safeOrigin = contextSlots.origin || cachedContext.origin || "";
         const safeDestination = contextSlots.destination || cachedContext.destination || "";
         const safeDate = currentSlots.date;
 
-        
+
         slots.origin = safeOrigin;
         slots.destination = safeDestination;
         slots.date = safeDate;
 
         console.log(`SPECIAL HANDLING: Updated slots: ${JSON.stringify(slots)}`);
 
-        
+
         const cleanOrigin = safeOrigin.replace(/^flights?\s+from\s+/i, '').trim();
         const cleanDestination = safeDestination.replace(/^to\s+/i, '').trim().replace(/\s+on$/, '').trim();
 
         console.log(`Proceeding with flight search: ${cleanOrigin} to ${cleanDestination} on ${safeDate}`);
 
-        
+
         conversationCache[conversationId] = {
             ...slots,
             origin: cleanOrigin,
@@ -258,34 +258,34 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
             lastIntent: "flight"
         };
 
-        
+
     }
 
-    
+
     if (isFilterRequest) {
         console.log("Processing filter request");
 
-        
+
         console.log("Context lastIntent:", contextSlots.lastIntent);
         console.log("Context has lastResults:", contextSlots.lastResults ? "YES" : "NO");
         console.log("Cache lastIntent:", cachedContext.lastIntent);
         console.log("Cache has lastResults:", cachedContext.lastResults ? "YES" : "NO");
 
-        
+
         const effectiveLastResults = contextSlots.lastResults || cachedContext.lastResults;
         const effectiveLastIntent = contextSlots.lastIntent || cachedContext.lastIntent;
 
         if (effectiveLastResults && effectiveLastIntent) {
             console.log("Processing filter request with context:", effectiveLastIntent);
 
-            
+
             const priceMatch = trimmed.match(/(?:under|less than|below|cheaper than|max|maximum|up to|not more than)\s+(?:rs\.?|inr|₹)?\s*(\d+)/i);
             let maxPrice = null;
             if (priceMatch && priceMatch[1]) {
                 maxPrice = parseInt(priceMatch[1], 10);
                 console.log(`Extracted max price filter: ${maxPrice}`);
             } else {
-                
+
                 const numberMatch = trimmed.match(/\d+/);
                 if (numberMatch) {
                     maxPrice = parseInt(numberMatch[0], 10);
@@ -293,7 +293,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                 }
             }
 
-            
+
             const isRatingFilter =
                 trimmed.toLowerCase().includes('rating') ||
                 trimmed.toLowerCase().includes('stars') ||
@@ -303,10 +303,10 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
 
             console.log(`Is rating filter: ${isRatingFilter}`);
 
-            
+
             if (intent === "filter" && maxPrice && effectiveLastIntent !== "flight" &&
                 effectiveLastIntent !== "hotel" && effectiveLastIntent !== "restaurant") {
-                
+
                 res.json({
                     intent: "unknown",
                     message: "I'm not sure what you want to filter. Could you please specify if you're looking for flights, hotels, or restaurants with that filter?",
@@ -315,14 +315,14 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                 return;
             }
 
-            
+
             if (isRatingFilter && effectiveLastIntent === "restaurant" && effectiveLastResults.length > 0) {
                 console.log("Processing rating filter for restaurants");
 
-                
+
                 let ratingThreshold: number | null = null;
-                if (maxPrice) {  
-                    ratingThreshold = maxPrice > 5 ? 5 : maxPrice;  
+                if (maxPrice) {
+                    ratingThreshold = maxPrice > 5 ? 5 : maxPrice;
                     console.log(`Using rating threshold: ${ratingThreshold}`);
 
                     const filteredRestaurants = JSON.parse(effectiveLastResults).filter(
@@ -334,7 +334,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                     console.log(`Filtered ${filteredRestaurants.length} restaurants with rating below ${ratingThreshold}`);
 
                     if (filteredRestaurants.length > 0) {
-                        
+
                         conversationCache[conversationId] = {
                             ...contextSlots,
                             lastResults: JSON.stringify(filteredRestaurants),
@@ -359,9 +359,9 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                 }
             }
 
-            
+
             if (effectiveLastIntent === "flight" && effectiveLastResults.length > 0) {
-                
+
                 if (maxPrice) {
                     console.log("Processing price filter for flights");
 
@@ -371,7 +371,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                     console.log(`Filtered ${filteredFlights.length} flights under price ${maxPrice}`);
 
                     if (filteredFlights.length > 0) {
-                        
+
                         conversationCache[conversationId] = {
                             origin: slots.origin,
                             destination: slots.destination,
@@ -401,7 +401,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                     return;
                 }
             } else if (effectiveLastIntent === "hotel" && effectiveLastResults.length > 0) {
-                
+
                 if (maxPrice) {
                     console.log("Processing price filter for hotels");
 
@@ -411,7 +411,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                     console.log(`Filtered ${filteredHotels.length} hotels under price ${maxPrice}`);
 
                     if (filteredHotels.length > 0) {
-                        
+
                         conversationCache[conversationId] = {
                             city: slots.city,
                             lastIntent: "hotel",
@@ -441,11 +441,11 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                     return;
                 }
             } else if (effectiveLastIntent === "restaurant" && effectiveLastResults.length > 0) {
-                
-                
+
+
                 if (maxPrice && !isRatingFilter) {
                     console.log("Processing price filter for restaurants");
-                    
+
                     const maxPriceSymbols = "$".repeat(Math.min(Math.ceil(maxPrice / 1000), 4));
                     console.log(`Price ${maxPrice} converted to symbol count: ${maxPriceSymbols.length}`);
 
@@ -455,7 +455,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                     console.log(`Filtered ${filteredRestaurants.length} restaurants with price range ${maxPriceSymbols} or less`);
 
                     if (filteredRestaurants.length > 0) {
-                        
+
                         conversationCache[conversationId] = {
                             city: slots.city,
                             lastIntent: "restaurant",
@@ -486,10 +486,10 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                 }
             }
 
-            
+
             if (maxPrice) {
                 console.log("Filter request received but no relevant context found");
-                
+
                 if (currentSlots.city) {
                     if (intent === "filter") {
                         console.log("Treating as a hotel filter request based on context");
@@ -510,7 +510,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                     return;
                 }
 
-                
+
                 res.json({
                     intent: "unknown",
                     message: `I can help you find options under ₹${maxPrice}. Are you looking for flights, hotels, or restaurants?`,
@@ -521,50 +521,50 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
         }
     }
 
-    
+
     let isContinuation = false;
     let prevIntent = contextSlots.lastIntent || "";
 
-    
+
     if (intent === "unknown" && prevIntent) {
         console.log(`Unknown intent but previous intent was ${prevIntent}. Checking for continuation...`);
 
-        
+
         if (currentSlots.date && prevIntent === "flight") {
             console.log(`Found date ${currentSlots.date} - likely a continuation of flight search`);
             intent = "flight";
             isContinuation = true;
 
-            
+
             slots.origin = contextSlots.origin;
             slots.destination = contextSlots.destination;
             slots.date = currentSlots.date;
 
             console.log(`Updated slots for flight continuation: ${JSON.stringify(slots)}`);
         }
-        
+
         else if (currentSlots.destination && !currentSlots.origin && prevIntent === "flight" && contextSlots.origin) {
             console.log(`Found destination ${currentSlots.destination} - likely a continuation of flight search`);
             intent = "flight";
             isContinuation = true;
 
-            
+
             slots.origin = contextSlots.origin;
             slots.destination = currentSlots.destination;
             slots.date = contextSlots.date;
         }
     }
 
-    
+
     try {
-        
+
         const metadata: string = JSON.stringify({
             slots,
             intent
         });
 
         if (req.user) {
-            
+
             const userExists = await prisma.user.findUnique({
                 where: { id: req.user.userId }
             });
@@ -580,7 +580,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                     });
                 } catch (error) {
                     console.error("Error logging user search with metadata:", error);
-                    
+
                     await prisma.searchLog.create({
                         data: {
                             userId: req.user.userId,
@@ -590,7 +590,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                     });
                 }
             } else {
-                
+
                 try {
                     await prisma.guestLog.create({
                         data: {
@@ -601,7 +601,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                     });
                 } catch (error) {
                     console.error("Error logging guest search with metadata:", error);
-                    
+
                     await prisma.guestLog.create({
                         data: {
                             ip: getClientIP(req),
@@ -622,7 +622,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                 });
             } catch (error) {
                 console.error("Error logging guest search with metadata:", error);
-                
+
                 await prisma.guestLog.create({
                     data: {
                         ip: getClientIP(req),
@@ -634,10 +634,10 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
         }
     } catch (error) {
         console.error("Error logging request:", error);
-        
+
     }
 
-    
+
     let conversationMessages: ChatMessage[] = [];
     try {
         if (req.user) {
@@ -647,7 +647,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                 take: 5
             });
 
-            
+
             conversationMessages = logs.map(log => ({
                 role: "user" as const,
                 content: log.prompt
@@ -659,47 +659,47 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                 take: 5
             });
 
-            
+
             conversationMessages = logs.map(log => ({
                 role: "user" as const,
                 content: log.prompt
             }));
         }
 
-        
+
         conversationMessages.reverse();
 
-        
+
         conversationMessages.push({ role: "user", content: trimmed });
     } catch (error) {
         console.error("Error retrieving conversation history:", error);
-        
+
         conversationMessages = [{ role: "user", content: trimmed }];
     }
 
     if (intent === "flight") {
         const { origin, destination, date } = slots;
 
-        
+
         if (origin && destination && date) {
             console.log(`FOUND ALL INFO for flights: ${origin} to ${destination} on ${date}`);
 
-            
+
             const cleanOrigin = origin.replace(/^flights?\s+from\s+/i, '').trim();
             const cleanDestination = destination.replace(/^to\s+/i, '').trim().replace(/\s+on$/, '').trim();
 
             console.log(`Searching for flights from ${cleanOrigin} to ${cleanDestination} on ${date}`);
 
-            
+
             const targetDate = new Date(date);
             const targetMonth = targetDate.getMonth();
             const targetDay = targetDate.getDate();
 
             console.log(`Target date parsed as: ${targetDate.toISOString()}, Month: ${targetMonth + 1}, Day: ${targetDay}`);
 
-            
+
             const normalizeCity = (cityName: string): string => {
-                
+
                 const corrections: Record<string, string> = {
                     "banaglore": "bangalore",
                     "banglore": "bangalore",
@@ -723,7 +723,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
             console.log(`Normalized cities: ${normalizedOrigin} to ${normalizedDestination}`);
 
             try {
-                
+
                 const debugFlights = await prisma.flight.findMany({ take: 3 });
                 console.log("SAMPLE FLIGHTS FROM DATABASE:");
                 debugFlights.forEach(flight => {
@@ -733,7 +733,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                     console.log(`Flight ${flight.id}: ${source} to ${destination}, Date: ${dbDate.toISOString()}, Month: ${dbDate.getMonth() + 1}, Day: ${dbDate.getDate()}`);
                 });
 
-                
+
                 const allRouteFlights = await prisma.$queryRaw`
                     SELECT * FROM "Flight" 
                     WHERE LOWER(source) = LOWER(${normalizedOrigin.toLowerCase()}) 
@@ -742,7 +742,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
 
                 console.log(`\nFound ${Array.isArray(allRouteFlights) ? allRouteFlights.length : 0} total flights on route ${normalizedOrigin} to ${normalizedDestination}`);
 
-                
+
                 if (Array.isArray(allRouteFlights) && allRouteFlights.length > 0) {
                     const availableDates = allRouteFlights.map(flight => {
                         const flightDate = new Date(flight.date);
@@ -752,54 +752,54 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                     console.log(`Available M/D combinations: ${uniqueDates.join(', ')}`);
                     console.log(`We're looking for: ${targetMonth + 1}/${targetDay}`);
 
-                    
+
                     const dateFilteredFlights = allRouteFlights.filter(flight => {
                         const flightDate = new Date(flight.date);
                         const flightMonth = flightDate.getMonth();
                         const flightDay = flightDate.getDate();
                         const matches = flightMonth === targetMonth && flightDay === targetDay;
 
-                        
+
                         console.log(`Checking flight date: ${flightDate.toISOString()}, M: ${flightMonth + 1}, D: ${flightDay} against target M: ${targetMonth + 1}, D: ${targetDay} -> ${matches ? 'MATCH' : 'NO MATCH'}`);
 
                         return matches;
                     });
 
-                    
+
                     if (dateFilteredFlights.length === 0) {
                         console.log("No flights found for exact date. Checking nearby dates...");
 
-                        
+
                         const dateFilteredNearbyFlights = allRouteFlights.filter(flight => {
                             const flightDate = new Date(flight.date);
                             const flightMonth = flightDate.getMonth();
                             const flightDay = flightDate.getDate();
 
-                            
+
                             const dayDiff = Math.abs(flightDay - targetDay);
 
-                            
+
                             if (flightMonth === targetMonth) {
                                 return dayDiff <= 1;
                             } else {
-                                
+
                                 const lastDayOfTargetMonth = new Date(targetDate.getFullYear(), targetMonth + 1, 0).getDate();
                                 if (targetDay === lastDayOfTargetMonth && flightMonth === (targetMonth + 1) % 12 && flightDay === 1) {
-                                    return true; 
+                                    return true;
                                 }
                                 if (targetDay === 1 && flightMonth === (targetMonth + 11) % 12 && flightDay === new Date(targetDate.getFullYear(), flightMonth + 1, 0).getDate()) {
-                                    return true; 
+                                    return true;
                                 }
                             }
 
                             return false;
                         });
 
-                        
+
                         if (dateFilteredNearbyFlights.length > 0) {
                             console.log(`Found ${dateFilteredNearbyFlights.length} flights on nearby dates`);
 
-                            
+
                             dateFilteredNearbyFlights.sort((a, b) => {
                                 const dateA = new Date(a.date);
                                 const dateB = new Date(b.date);
@@ -808,15 +808,15 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                                 return diffA - diffB;
                             });
 
-                            
+
                             const alternativeMessage = `No flights found exactly for ${targetDay}/${targetMonth + 1}, showing flights on nearby dates instead.`;
                             console.log(alternativeMessage);
 
-                            
+
                             slots.lastResults = JSON.stringify(dateFilteredNearbyFlights);
                             slots.lastIntent = "flight";
 
-                            
+
                             conversationCache[conversationId] = {
                                 ...slots,
                                 lastIntent: "flight",
@@ -833,11 +833,11 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                         }
                     }
 
-                    
+
                     if (dateFilteredFlights.length === 0) {
                         console.log("No flights found, creating sample data");
 
-                        
+
                         const sampleFlights = [
                             {
                                 id: "sample1",
@@ -877,11 +877,11 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                             }
                         ];
 
-                        
+
                         slots.lastResults = JSON.stringify(sampleFlights);
                         slots.lastIntent = "flight";
 
-                        
+
                         conversationCache[conversationId] = {
                             ...slots,
                             lastIntent: "flight",
@@ -901,11 +901,11 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                     console.log(`Found ${dateFilteredFlights.length} flights after date filtering`);
 
                     if (dateFilteredFlights.length > 0) {
-                        
+
                         slots.lastResults = JSON.stringify(dateFilteredFlights);
                         slots.lastIntent = "flight";
 
-                        
+
                         conversationCache[conversationId] = {
                             ...slots,
                             lastIntent: "flight",
@@ -922,7 +922,7 @@ export const handleChat = async (req: AuthRequest, res: Response): Promise<void>
                     }
                 }
 
-                
+
                 const noFlightsMessage = `I couldn't find any flights from ${cleanOrigin} to ${cleanDestination} on ${date}. This route may not be available on this date.
 
 You could try:
@@ -937,12 +937,12 @@ Would you like me to help you search for flights on a different date?`;
                     results: [],
                     fallback: true,
                     message: noFlightsMessage,
-                    slots 
+                    slots
                 });
             } catch (error) {
                 console.error('Error searching for flights:', error);
 
-                
+
                 res.json({
                     intent,
                     results: [],
@@ -954,12 +954,12 @@ Would you like me to help you search for flights on a different date?`;
             return;
         }
 
-        
+
         if (origin && !destination && !date) {
             console.log(`Only origin provided: ${origin}. Suggesting popular destinations.`);
 
             try {
-                
+
                 const availableDestinations = await prisma.$queryRaw`
                     SELECT DISTINCT destination 
                     FROM "Flight" 
@@ -967,7 +967,7 @@ Would you like me to help you search for flights on a different date?`;
                     LIMIT 5
                 `;
 
-                
+
                 let suggestionsMessage = `I see you're looking for flights from ${origin}!`;
 
                 if (Array.isArray(availableDestinations) && availableDestinations.length > 0) {
@@ -982,7 +982,7 @@ Would you like me to help you search for flights on a different date?`;
                     suggestionsMessage = `I can help you find flights from ${origin}! Where would you like to fly to, and when are you planning to travel?`;
                 }
 
-                
+
                 slots.lastIntent = "flight";
 
                 res.json({
@@ -994,7 +994,7 @@ Would you like me to help you search for flights on a different date?`;
             } catch (error) {
                 console.error("Error fetching destinations:", error);
 
-                
+
                 const suggestionsMessage = `I can help you find flights from ${origin}! Where would you like to fly to, and when are you planning to travel?`;
 
                 res.json({
@@ -1006,7 +1006,7 @@ Would you like me to help you search for flights on a different date?`;
             }
         }
 
-        
+
         if (!origin && destination) {
             res.json({
                 intent,
@@ -1016,7 +1016,7 @@ Would you like me to help you search for flights on a different date?`;
             return;
         }
 
-        
+
         if (!origin && !destination && date) {
             res.json({
                 intent,
@@ -1026,23 +1026,23 @@ Would you like me to help you search for flights on a different date?`;
             return;
         }
 
-        
+
         if (intent === "flight" && slots.origin && slots.destination && !slots.date) {
             console.log(`Have origin and destination but no date: ${slots.origin} to ${slots.destination}`);
 
-            
+
             slots.lastIntent = "flight";
 
-            
+
             conversationCache[conversationId] = {
                 ...slots,
-                
+
                 origin: slots.origin,
                 destination: slots.destination
             };
             console.log(`Updated cache for ${conversationId}:`, conversationCache[conversationId]);
 
-            
+
             const message = `I can find flights from ${slots.origin} to ${slots.destination}. When would you like to travel?`;
 
             res.json({
@@ -1053,7 +1053,7 @@ Would you like me to help you search for flights on a different date?`;
             return;
         }
 
-        
+
         if (!origin || !destination || !date) {
             const missingSlots = [
                 !origin && "origin",
@@ -1061,7 +1061,7 @@ Would you like me to help you search for flights on a different date?`;
                 !date && "date"
             ].filter(Boolean).join(", ");
 
-            
+
             let message = "To search for flights, I need more information. ";
             if (!origin) message += "Where will you be flying from? ";
             if (!destination) message += "Where do you want to go? ";
@@ -1070,13 +1070,13 @@ Would you like me to help you search for flights on a different date?`;
             res.json({
                 intent,
                 message,
-                slots 
+                slots
             });
             return;
         }
     }
 
-    
+
     if (intent === "hotel") {
         const { city, maxPrice } = slots;
         if (!city) {
@@ -1088,9 +1088,9 @@ Would you like me to help you search for flights on a different date?`;
             return;
         }
 
-        
+
         const normalizeCity = (cityName: string): string => {
-            
+
             const corrections: Record<string, string> = {
                 "banaglore": "bangalore",
                 "banglore": "bangalore",
@@ -1111,7 +1111,7 @@ Would you like me to help you search for flights on a different date?`;
         const normalizedCity = normalizeCity(city);
         console.log(`Searching for hotels in normalized city: ${normalizedCity}`);
 
-        
+
         conversationCache[conversationId] = {
             city: normalizedCity,
             lastIntent: "hotel",
@@ -1134,21 +1134,21 @@ Would you like me to help you search for flights on a different date?`;
             },
         });
 
-        
+
         slots.lastIntent = "hotel";
 
         if (hotels.length > 0) {
-            
+
             slots.lastResults = JSON.stringify(hotels);
             slots.lastIntent = "hotel";
 
-            
+
             conversationCache[conversationId] = {
                 ...conversationCache[conversationId],
                 lastResults: JSON.stringify(hotels)
             };
 
-            
+
             let message = `Here are some hotels in ${city}`;
             if (slots.maxPrice) {
                 message += ` under ₹${slots.maxPrice}`;
@@ -1164,7 +1164,7 @@ Would you like me to help you search for flights on a different date?`;
             return;
         }
 
-        
+
         const noHotelsMessage = `I couldn't find any hotels in ${city}${slots.maxPrice ? ` under ₹${slots.maxPrice}` : ''}. 
 
 Would you like me to:
@@ -1184,7 +1184,7 @@ What would you prefer?`;
         return;
     }
 
-    
+
     if (intent === "restaurant") {
         const { city, cuisine } = slots;
         if (!city) {
@@ -1196,9 +1196,9 @@ What would you prefer?`;
             return;
         }
 
-        
+
         const normalizeCity = (cityName: string): string => {
-            
+
             const corrections: Record<string, string> = {
                 "banaglore": "bangalore",
                 "banglore": "bangalore",
@@ -1219,7 +1219,7 @@ What would you prefer?`;
         const normalizedCity = normalizeCity(city);
         console.log(`Searching for restaurants in city: ${normalizedCity}`);
 
-        
+
         conversationCache[conversationId] = {
             city: normalizedCity,
             lastIntent: "restaurant",
@@ -1232,13 +1232,13 @@ What would you prefer?`;
         };
         console.log(`Updated cache for restaurant search:`, conversationCache[conversationId]);
 
-        
+
         slots.lastIntent = "restaurant";
 
         try {
             console.log(`Searching for restaurants in normalized city: ${normalizedCity}`);
 
-            
+
             let query = Prisma.sql`
                 SELECT * FROM "Restaurant" 
                 WHERE LOWER(location) LIKE ${`%${normalizedCity.toLowerCase()}%`}
@@ -1261,17 +1261,17 @@ What would you prefer?`;
             if (Array.isArray(restaurants) && restaurants.length > 0) {
                 console.log("Returning restaurant results to frontend");
 
-                
+
                 slots.lastResults = JSON.stringify(restaurants);
                 slots.lastIntent = "restaurant";
 
-                
+
                 conversationCache[conversationId] = {
                     ...conversationCache[conversationId],
                     lastResults: JSON.stringify(restaurants)
                 };
 
-                
+
                 let message = `Here are some ${cuisine ? cuisine + " " : ""}restaurants in ${city}:`;
 
                 res.json({
@@ -1284,7 +1284,7 @@ What would you prefer?`;
             } else {
                 console.log("No restaurants found in database, creating sample data");
 
-                
+
                 const sampleRestaurants = [
                     {
                         id: "sample1",
@@ -1328,17 +1328,17 @@ What would you prefer?`;
                     }
                 ];
 
-                
+
                 slots.lastResults = JSON.stringify(sampleRestaurants);
                 slots.lastIntent = "restaurant";
 
-                
+
                 conversationCache[conversationId] = {
                     ...conversationCache[conversationId],
                     lastResults: JSON.stringify(sampleRestaurants)
                 };
 
-                
+
                 let message = `I found some great${cuisine ? " " + cuisine : ""} restaurants in ${city} for you:`;
 
                 console.log("Returning sample restaurant data");
@@ -1354,7 +1354,7 @@ What would you prefer?`;
             console.error('Error searching for restaurants:', error);
         }
 
-        
+
         const noRestaurantsMessage = `I couldn't find any${cuisine ? ` ${cuisine}` : ''} restaurants in ${city}. 
 
 Would you like me to:
@@ -1374,7 +1374,7 @@ What would you prefer?`;
         return;
     }
 
-    
+
     const contextPrompt = "Remember you are a travel assistant and can only discuss travel topics. If the user is asking about non-travel topics, politely redirect them back to travel discussions. Based on the conversation history, provide helpful travel information or ask for more details to assist with travel planning.";
 
     const updatedMessages: ChatMessage[] = [
@@ -1386,7 +1386,7 @@ What would you prefer?`;
     res.json({
         intent: "unknown",
         message: fallback || "🤖 I'm your travel assistant. Please ask about flights, hotels, or restaurants!",
-        slots 
+        slots
     });
 };
 
@@ -1409,10 +1409,10 @@ async function getConversationContext(req: AuthRequest): Promise<SlotContext> {
 
         console.log("Latest log:", latestLog);
 
-        
+
         if (latestLog && 'metadata' in latestLog && latestLog.metadata) {
             try {
-                
+
                 if (latestLog.metadata === "{}" || latestLog.metadata === "") {
                     console.log("Empty metadata found, returning empty context");
                     return {} as SlotContext;
@@ -1421,7 +1421,7 @@ async function getConversationContext(req: AuthRequest): Promise<SlotContext> {
                 const parsedMetadata = JSON.parse(latestLog.metadata as string) as MessageMetadata;
                 console.log("Parsed metadata:", parsedMetadata);
 
-                
+
                 if (!parsedMetadata.slots) {
                     console.log("No slots in metadata, returning empty context");
                     return {} as SlotContext;
@@ -1457,7 +1457,7 @@ export const getHistory = async (req: AuthRequest, res: Response): Promise<void>
 
         console.log(`Getting history for user ${req.user.userId}`);
 
-        
+
         const userExists = await prisma.user.findUnique({
             where: { id: req.user.userId }
         });
@@ -1468,7 +1468,7 @@ export const getHistory = async (req: AuthRequest, res: Response): Promise<void>
             return;
         }
 
-        
+
         const logs = await prisma.searchLog.findMany({
             where: { userId: req.user.userId },
             orderBy: { createdAt: "desc" },
