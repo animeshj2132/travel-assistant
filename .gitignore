@@ -8,6 +8,3 @@ dist/
 
 # Environment variables
 .env
-
-# Database seed files
-prisma/seed.ts
