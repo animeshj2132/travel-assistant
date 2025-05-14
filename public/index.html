@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Flight Assistant</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #f5f5f5;
+        }
+
+        .chatbox {
+            max-width: 600px;
+            margin: 30px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px #ccc;
+        }
+
+        .message {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            white-space: pre-line;
+        }
+
+        .bot {
+            background: #e0f7fa;
+            text-align: left;
+        }
+
+        .user {
+            background: #dcedc8;
+            text-align: right;
+        }
+
+        input {
+            padding: 10px;
+            width: 80%;
+        }
+
+        button {
+            padding: 10px;
+        }
+
+        #loginBox {
+            margin-bottom: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #f0f0f0;
+        }
+
+        #loggedInView {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        #userEmail {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .loginButton {
+            margin-right: 5px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .loginButton:hover {
+            background-color: #45a049;
+        }
+
+        .loading {
+            display: inline-block;
+            margin: 10px;
+        }
+
+        .loading:after {
+            content: '.';
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+
+        @keyframes dots {
+
+            0%,
+            20% {
+                content: '.';
+            }
+
+            40% {
+                content: '..';
+            }
+
+            60% {
+                content: '...';
+            }
+
+            80%,
+            100% {
+                content: '';
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="chatbox" id="chat">
+        <div id="loginBox">
+            <div id="loggedOutView">
+                <input id="email" placeholder="Enter your email" />
+                <button class="loginButton" onclick="signup()">Signup</button>
+                <button class="loginButton" onclick="login()">Login</button>
+            </div>
+            <div id="loggedInView" style="display:none;">
+                <span id="userEmail"></span>
+                <button class="loginButton" onclick="logout()">Logout</button>
+            </div>
+        </div>
+        <div id="messages"></div>
+        <div id="inputBox" style="margin-top:10px;">
+            <input id="userInput" placeholder="Ask me about flights, hotels, restaurants..." />
+            <button onclick="sendMessage()">Send</button>
+            <button onclick="loadHistory()">🔁 History</button>
+        </div>
+    </div>
+
+    <script>
+        const API = "http://localhost:3000";
+        const messages = document.getElementById("messages");
+        let lastResults = [];
+        let currentIntent = "";
+
+        function addMessage(text, sender = "bot") {
+            const msg = document.createElement("div");
+            msg.className = "message " + sender;
+            msg.textContent = text;
+            messages.appendChild(msg);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function showLoading() {
+            const loading = document.createElement("div");
+            loading.className = "message bot loading";
+            loading.id = "loadingIndicator";
+            loading.textContent = "Thinking";
+            messages.appendChild(loading);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function hideLoading() {
+            const loading = document.getElementById("loadingIndicator");
+            if (loading) loading.remove();
+        }
+
+        window.onload = () => {
+            addMessage("👋 Hi! I'm your Travel Assistant. How can I help you today? You can ask me about flights, hotels, or restaurants. I'll remember our conversation context, so feel free to be specific or ask follow-up questions!");
+
+            updateLoginState();
+        };
+
+        function getToken() {
+            return localStorage.getItem("token");
+        }
+
+        function getUserEmail() {
+            return localStorage.getItem("userEmail");
+        }
+
+        function updateLoginState() {
+            const token = getToken();
+            const email = getUserEmail();
+
+            if (token && email) {
+                document.getElementById("loggedOutView").style.display = "none";
+                document.getElementById("loggedInView").style.display = "block";
+                document.getElementById("userEmail").textContent = `Logged in as: ${email}`;
+            } else {
+                document.getElementById("loggedOutView").style.display = "block";
+                document.getElementById("loggedInView").style.display = "none";
+                document.getElementById("email").value = "";
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem("token");
+            localStorage.removeItem("userEmail");
+            updateLoginState();
+
+            resetChatToInitialState();
+            addMessage("You have been logged out successfully.");
+
+            alert("Logged out successfully.");
+        }
+
+        async function signup() {
+            const email = document.getElementById("email").value.trim();
+            if (!email) return alert("Enter email first.");
+            const res = await fetch(`${API}/auth/signup`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email }),
+            });
+            const data = await res.json();
+            if (data.token) {
+                localStorage.setItem("token", data.token);
+                localStorage.setItem("userEmail", email);
+                updateLoginState();
+
+                resetChatToInitialState();
+                addMessage(`Welcome, ${email}! You've successfully signed up.`);
+
+                alert("Signup successful. You're logged in.");
+            } else {
+                alert(data.message || "Signup failed.");
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById("email").value.trim();
+            if (!email) return alert("Enter email first.");
+            const res = await fetch(`${API}/auth/login`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email }),
+            });
+            const data = await res.json();
+            if (data.token) {
+                localStorage.setItem("token", data.token);
+                localStorage.setItem("userEmail", email);
+                updateLoginState();
+
+                resetChatToInitialState();
+                addMessage(`Welcome back, ${email}!`);
+
+                loadHistory();
+
+                alert("Login successful.");
+            } else {
+                alert(data.message || "Login failed.");
+            }
+        }
+
+        function resetChatToInitialState() {
+            messages.innerHTML = ''; 
+            addMessage("👋 Hi! I'm your Travel Assistant. How can I help you today? You can ask me about flights, hotels, or restaurants. I'll remember our conversation context, so feel free to be specific or ask follow-up questions!");
+
+            lastResults = [];
+            currentIntent = "";
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById("userInput");
+            const prompt = input.value.trim();
+            if (!prompt) return;
+
+            addMessage(prompt, "user");
+            input.value = "";
+
+            showLoading();
+
+            try {
+                const res = await fetch(`${API}/chat`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${getToken()}`,
+                    },
+                    body: JSON.stringify({ prompt }),
+                });
+                const data = await res.json();
+                console.log("Response from server:", data);
+
+                hideLoading();
+
+                if (data.message) addMessage("🤖 " + data.message);
+
+                if (data.results?.length) {
+                    // Update stored data
+                    lastResults = data.results;
+                    currentIntent = data.intent;
+                    console.log(`Got ${data.results.length} results for intent: ${data.intent}`);
+
+                    // Check intent to determine what type of results to display
+                    if (data.intent === "flight") {
+                        console.log("Displaying flights");
+                        displayFlights(data.results);
+                    } else if (data.intent === "hotel") {
+                        console.log("Displaying hotels");
+                        displayHotels(data.results);
+                    } else if (data.intent === "restaurant") {
+                        console.log("Displaying restaurants");
+                        console.log("Restaurant data:", data.results.slice(0, 2));
+                        displayRestaurants(data.results);
+                    } else {
+                        // Fallback for any other type of result
+                        console.log("Using generic result display");
+                        data.results.forEach((item, i) =>
+                            addMessage(`Result ${i + 1}: ${JSON.stringify(item)}`)
+                        );
+                    }
+                } else {
+                    console.log("No results received, hiding filter");
+                }
+            } catch (e) {
+                console.error("API error:", e);
+                hideLoading();
+                addMessage("⚠️ Error occurred. Try again.");
+            }
+        }
+
+        async function loadHistory() {
+            showLoading();
+
+            const token = getToken();
+            if (!token) {
+                hideLoading();
+                addMessage("⚠️ Please log in to view your search history.");
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API}/auth/history`, {
+                    headers: {
+                        Authorization: `Bearer ${token}`
+                    },
+                });
+
+                if (res.status === 401) {
+                    hideLoading();
+                    addMessage("⚠️ Your session has expired. Please log in again.");
+                    return;
+                }
+
+                const data = await res.json();
+
+                hideLoading();
+
+                if (data.logs?.length) {
+                    addMessage("🕓 Your last 5 searches:");
+                    data.logs.slice(0, 5).forEach((log) =>
+                        addMessage(`📝 ${log.intent} → ${log.prompt}`)
+                    );
+                } else {
+                    addMessage("📭 No history found.");
+                }
+            } catch (error) {
+                console.error("History fetch error:", error);
+                hideLoading();
+                addMessage("⚠️ Failed to fetch history.");
+            }
+        }
+
+        function displayFlights(flights) {
+            flights.forEach((f, i) => {
+                const flightInfo = `✈️ Flight ${i + 1}: ${f.flight_name} ${f.flight_number}
+🔸 Route: ${f.source} to ${f.destination}
+🔸 Departure: ${f.departure_time}
+🔸 Arrival: ${f.arrival_time}
+🔸 Duration: ${f.duration}
+🔸 Price: ₹${f.price}
+`;
+                addMessage(flightInfo);
+            });
+        }
+
+        function displayHotels(hotels) {
+            hotels.forEach((h, i) => {
+                const hotelInfo = `🏨 Hotel ${i + 1}: ${h.name}
+🔸 Location: ${h.city}
+🔸 Rating: ${"⭐".repeat(h.stars)}
+🔸 Price: ₹${h.room_price}/night
+🔸 Availability: ${h.availability ? "Available" : "Not available"}
+`;
+                addMessage(hotelInfo);
+            });
+        }
+
+        function displayRestaurants(restaurants) {
+            restaurants.forEach((r, i) => {
+                const restaurantInfo = `🍽️ Restaurant ${i + 1}: ${r.name}
+🔸 Location: ${r.location}
+🔸 Cuisine: ${r.cuisine}
+🔸 Rating: ${r.rating}/5
+🔸 Price Range: ${r.price_range}
+`;
+                addMessage(restaurantInfo);
+            });
+        }
+    </script>
+</body>
+
+</html>

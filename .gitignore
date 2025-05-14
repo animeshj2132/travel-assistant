@@ -1,0 +1,13 @@
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Build outputs
+dist/
+
+
+# Environment variables
+.env
+
+# Database seed files
+prisma/seed.ts

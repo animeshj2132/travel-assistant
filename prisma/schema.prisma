@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id    String      @id @default(uuid())
+  email String      @unique
+  logs  SearchLog[]
+}
+
+model SearchLog {
+  id        String   @id @default(uuid())
+  userId    String
+  prompt    String
+  intent    String
+  metadata  String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Flight {
+  id             String   @id @default(uuid())
+  destination    String
+  price          Float
+  arrival_time   String
+  departure_time String
+  duration       String
+  flight_name    String
+  flight_number  String   @unique
+  source         String
+  date           DateTime
+}
+
+model Hotel {
+  id           String  @id @default(uuid())
+  city         String
+  name         String
+  availability Boolean
+  room_price   Float
+  stars        Int
+}
+
+model Restaurant {
+  id          String @id @default(uuid())
+  name        String
+  cuisine     String
+  rating      Float
+  location    String
+  price_range String
+}
+
+model GuestLog {
+  id        String   @id @default(uuid())
+  ip        String
+  prompt    String
+  intent    String
+  metadata  String?
+  createdAt DateTime @default(now())
+}
