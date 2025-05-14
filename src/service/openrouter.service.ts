@@ -52,7 +52,7 @@ export const callOpenRouterWithMessages = async (messages: ChatMessage[], conver
             headers: {
                 Authorization: `Bearer ${apiKey}`,
                 "Content-Type": "application/json",
-                "HTTP-Referer": "http://localhost",
+                "HTTP-Referer": "https://travel-assistant-production.up.railway.app",
                 "X-Title": "TravelAssistant",
             },
         }
